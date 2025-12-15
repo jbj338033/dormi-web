@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Plus, TrendingUp, TrendingDown, Activity, ChevronDown, User, Award, X } from 'lucide-react';
+import { AlertTriangle, Plus, TrendingUp, TrendingDown, Activity, ChevronDown, X, Award, User } from 'lucide-react';
 import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, EmptyState, Skeleton } from '@/shared/ui';
 import { StudentTable } from '@/widgets/student-table';
 import { PointForm } from '@/widgets/point-form';
@@ -212,8 +212,7 @@ export default function PointsPage() {
   return (
     <div className="p-6">
       <PageHeader
-        title="벌점/상점 관리"
-        description="학생별 점수를 관리하고 이력을 확인합니다"
+        title="벌점/상점"
         actions={
           canGrant && (selectedIds.length > 0 || selectedStudent) && (
             <Button onClick={() => setIsPointFormOpen(true)} size="sm">

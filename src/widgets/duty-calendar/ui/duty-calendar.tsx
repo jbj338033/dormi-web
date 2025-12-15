@@ -19,7 +19,7 @@ import type { DutySchedule } from '@/entities/duty';
 interface DutyCalendarProps {
   currentMonth: Date;
   schedules: DutySchedule[];
-  currentUserId?: number;
+  currentUserId?: string;
   onSelectDate?: (date: Date, schedules: DutySchedule[]) => void;
 }
 

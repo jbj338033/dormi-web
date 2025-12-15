@@ -12,7 +12,7 @@ import {
   Button,
 } from '@/shared/ui';
 import type { Point } from '@/entities/point';
-import { POINT_REASON_LABELS } from '@/shared/config/constants';
+import { POINT_TYPE_LABELS } from '@/shared/config/constants';
 import { formatDateTime } from '@/shared/lib';
 
 interface PointHistoryProps {
@@ -47,23 +47,18 @@ export function PointHistory({ points, onCancel, loading }: PointHistoryProps) {
         {points.map((point) => (
           <TableRow key={point.id}>
             <TableCell>
-              <Badge variant={point.type === 'MERIT' ? 'success' : 'danger'}>
-                {point.type === 'MERIT' ? '상점' : '벌점'}
+              <Badge variant={point.reason.type === 'REWARD' ? 'success' : 'danger'}>
+                {POINT_TYPE_LABELS[point.reason.type]}
               </Badge>
             </TableCell>
             <TableCell className="font-medium">
-              {point.type === 'MERIT' ? '+' : '-'}
-              {point.score}
+              {point.reason.type === 'REWARD' ? '+' : '-'}
+              {point.reason.score}
             </TableCell>
-            <TableCell>
-              <span>{POINT_REASON_LABELS[point.reason]}</span>
-              {point.customReason && (
-                <span className="text-zinc-400 text-xs block">{point.customReason}</span>
-              )}
-            </TableCell>
-            <TableCell className="text-zinc-500">{point.grantedBy.name}</TableCell>
+            <TableCell>{point.reason.name}</TableCell>
+            <TableCell className="text-zinc-500">{point.givenBy.name}</TableCell>
             <TableCell className="text-xs text-zinc-400">
-              {formatDateTime(point.createdAt)}
+              {formatDateTime(point.givenAt)}
             </TableCell>
             <TableCell>
               {point.cancelled ? (

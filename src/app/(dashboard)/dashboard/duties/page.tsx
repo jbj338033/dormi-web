@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { Plus, ChevronLeft, ChevronRight, Trash2, Calendar, Clock, Home, User } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Card, CardContent, Modal, Button, Select, Input, Badge, Checkbox, PageHeader, ConfirmDialog, EmptyState, Skeleton } from '@/shared/ui';
 import { DutyCalendar } from '@/widgets/duty-calendar';
 import { getDuties, generateDuties, deleteDuty } from '@/features/duty';
@@ -156,7 +156,6 @@ export default function DutiesPage() {
     <div className="p-6">
       <PageHeader
         title="당직 관리"
-        description={format(currentMonth, 'yyyy년 M월', { locale: ko })}
         actions={
           canCreate && (
             <Button onClick={() => setIsCreateModalOpen(true)} size="sm">
@@ -166,62 +165,6 @@ export default function DutiesPage() {
           )
         }
       />
-
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-sky-50 flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-sky-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{monthTotalDuties}</p>
-                <p className="text-xs text-zinc-500">이번 달 당직</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <Home className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{monthCompletedDuties}</p>
-                <p className="text-xs text-zinc-500">완료된 당직</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{monthTotalDuties - monthCompletedDuties}</p>
-                <p className="text-xs text-zinc-500">대기 중</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center">
-                <User className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{myUpcomingDuties.length}</p>
-                <p className="text-xs text-zinc-500">내 예정 당직</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 캘린더 */}

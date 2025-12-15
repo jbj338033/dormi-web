@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Users, Home, GraduationCap, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Plus, Upload, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, Badge } from '@/shared/ui';
 import { StudentTable } from '@/widgets/student-table';
 import { StudentForm } from '@/widgets/student-form';
@@ -158,80 +158,26 @@ export default function StudentsPage() {
     }
   };
 
-  // 통계 계산
-  const roomCount = new Set(students.map((s) => s.roomNumber)).size;
-  const gradeStats = [1, 2, 3].map((grade) => ({
-    grade,
-    count: students.filter((s) => s.grade === grade).length,
-  }));
-
   return (
     <div className="p-6">
       <PageHeader
         title="학생 관리"
-        description={`총 ${totalCount}명의 학생`}
         actions={
           canCreate && (
             <div className="flex gap-2">
               <Button onClick={() => setIsImportModalOpen(true)} size="sm" variant="secondary">
                 <Upload className="h-4 w-4 mr-1.5" />
-                CSV 가져오기
+                CSV
               </Button>
               <Button onClick={handleCreate} size="sm">
                 <Plus className="h-4 w-4 mr-1.5" />
-                학생 등록
+                등록
               </Button>
             </div>
           )
         }
       />
 
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-sky-50 flex items-center justify-center">
-                <Users className="h-5 w-5 text-sky-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{totalCount}</p>
-                <p className="text-xs text-zinc-500">전체 학생</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center">
-                <Home className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{roomCount}</p>
-                <p className="text-xs text-zinc-500">호실</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        {gradeStats.slice(0, 2).map((stat) => (
-          <Card key={stat.grade} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <GraduationCap className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-zinc-900">{stat.count}</p>
-                  <p className="text-xs text-zinc-500">{stat.grade}학년</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* 학생 목록 */}
       <Card>
         <CardContent>
           {loading ? (

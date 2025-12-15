@@ -1,9 +1,8 @@
 export {
-  getPoint,
   getPointsByStudent,
   getPointSummary,
-  grantPoint,
-  bulkGrantPoints,
+  givePoint,
+  bulkGivePoints,
   cancelPoint,
   resetAllPoints,
 } from './api/point-api';

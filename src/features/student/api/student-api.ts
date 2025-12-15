@@ -5,38 +5,35 @@ import type {
   UpdateStudentInput,
 } from '@/entities/student';
 
-export async function getAllStudents(): Promise<Student[]> {
-  return api.get('api/students').json<Student[]>();
+export async function getStudents(params?: { page?: number; limit?: number; search?: string; grade?: number; room?: string }) {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.limit) searchParams.set('limit', String(params.limit));
+  if (params?.search) searchParams.set('search', params.search);
+  if (params?.grade) searchParams.set('grade', String(params.grade));
+  if (params?.room) searchParams.set('room', params.room);
+
+  return api.paginated<Student>('students', { searchParams });
 }
 
-export async function getStudent(id: number): Promise<Student> {
-  return api.get(`api/students/${id}`).json<Student>();
-}
-
-export async function getStudentByNumber(studentNumber: string): Promise<Student> {
-  return api.get(`api/students/number/${studentNumber}`).json<Student>();
-}
-
-export async function getStudentsByRoom(roomNumber: string): Promise<Student[]> {
-  return api.get(`api/students/room/${roomNumber}`).json<Student[]>();
-}
-
-export async function searchStudents(name: string): Promise<Student[]> {
-  return api.get('api/students/search', { searchParams: { name } }).json<Student[]>();
+export async function getStudent(id: string): Promise<Student> {
+  return api.get<Student>(`students/${id}`);
 }
 
 export async function createStudent(data: CreateStudentInput): Promise<Student> {
-  return api.post('api/students', { json: data }).json<Student>();
+  return api.post<Student>('students', { json: data });
 }
 
-export async function updateStudent(id: number, data: UpdateStudentInput): Promise<Student> {
-  return api.put(`api/students/${id}`, { json: data }).json<Student>();
+export async function updateStudent(id: string, data: UpdateStudentInput): Promise<Student> {
+  return api.put<Student>(`students/${id}`, { json: data });
 }
 
-export async function deleteStudent(id: number): Promise<void> {
-  await api.delete(`api/students/${id}`);
+export async function deleteStudent(id: string): Promise<void> {
+  await api.delete(`students/${id}`);
 }
 
-export async function importStudentsFromCsv(csvContent: string): Promise<Student[]> {
-  return api.post('api/students/import', { json: { csv: csvContent } }).json<Student[]>();
+export async function importStudentsFromCsv(file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append('file', file);
+  await api.post('students/import', { body: formData });
 }

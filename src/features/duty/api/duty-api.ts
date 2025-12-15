@@ -1,35 +1,55 @@
 import { api } from '@/shared/api';
-import type { DutySchedule, DutyType } from '@/entities/duty';
+import type {
+  DutySchedule,
+  CreateDutyInput,
+  UpdateDutyInput,
+  GenerateDutyInput,
+  SwapDutyInput,
+} from '@/entities/duty';
 
-export interface GenerateDormDutyInput {
-  startDate: string;
-  endDate: string;
-  assignees: number[];
+export async function getDuties(params?: {
+  type?: string;
+  assigneeId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set('type', params.type);
+  if (params?.assigneeId) searchParams.set('assigneeId', params.assigneeId);
+  if (params?.startDate) searchParams.set('startDate', params.startDate);
+  if (params?.endDate) searchParams.set('endDate', params.endDate);
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.limit) searchParams.set('limit', String(params.limit));
+
+  return api.paginated<DutySchedule>('duties', { searchParams });
 }
 
-export interface GenerateNightStudyDutyInput {
-  startDate: string;
-  endDate: string;
-  floor2Assignees: number[];
-  floor3Assignees: number[];
+export async function getDuty(id: string): Promise<DutySchedule> {
+  return api.get<DutySchedule>(`duties/${id}`);
 }
 
-export async function getSchedulesByDateRange(startDate: string, endDate: string): Promise<DutySchedule[]> {
-  return api.get('api/duties', { searchParams: { startDate, endDate } }).json<DutySchedule[]>();
+export async function createDuty(data: CreateDutyInput): Promise<DutySchedule> {
+  return api.post<DutySchedule>('duties', { json: data });
 }
 
-export async function getTodaySchedules(type: DutyType): Promise<DutySchedule[]> {
-  return api.get('api/duties/today', { searchParams: { type } }).json<DutySchedule[]>();
+export async function updateDuty(id: string, data: UpdateDutyInput): Promise<DutySchedule> {
+  return api.put<DutySchedule>(`duties/${id}`, { json: data });
 }
 
-export async function generateDormDuty(data: GenerateDormDutyInput): Promise<DutySchedule[]> {
-  return api.post('api/duties/generate/dorm', { json: data }).json<DutySchedule[]>();
+export async function deleteDuty(id: string): Promise<void> {
+  await api.delete(`duties/${id}`);
 }
 
-export async function generateNightStudyDuty(data: GenerateNightStudyDutyInput): Promise<DutySchedule[]> {
-  return api.post('api/duties/generate/night-study', { json: data }).json<DutySchedule[]>();
+export async function generateDuties(data: GenerateDutyInput): Promise<DutySchedule[]> {
+  return api.post<DutySchedule[]>('duties/generate', { json: data });
 }
 
-export async function deleteSchedule(id: number): Promise<void> {
-  await api.delete(`api/duties/${id}`);
+export async function completeDuty(id: string): Promise<void> {
+  await api.patch(`duties/${id}/complete`);
+}
+
+export async function swapDuty(id: string, data: SwapDutyInput): Promise<void> {
+  await api.post(`duties/${id}/swap`, { json: data });
 }

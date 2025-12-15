@@ -1,9 +1,10 @@
 export {
-  getSchedulesByDateRange,
-  getTodaySchedules,
-  generateDormDuty,
-  generateNightStudyDuty,
-  deleteSchedule,
-  type GenerateDormDutyInput,
-  type GenerateNightStudyDutyInput,
+  getDuties,
+  getDuty,
+  createDuty,
+  updateDuty,
+  deleteDuty,
+  generateDuties,
+  completeDuty,
+  swapDuty,
 } from './api/duty-api';

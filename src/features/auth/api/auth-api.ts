@@ -8,19 +8,27 @@ interface LoginRequest {
 }
 
 interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
+  token: string;
   user: {
-    id: number;
+    id: string;
     email: string;
     name: string;
-    roles: Role[];
+    role: Role;
   };
 }
 
+interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export async function login(data: LoginRequest): Promise<void> {
-  const res = await api.post('api/auth/login', { json: data }).json<LoginResponse>();
-  useAuthStore.getState().setAuth(res.accessToken, res.user);
+  const res = await api.post<LoginResponse>('auth/login', { json: data });
+  useAuthStore.getState().setAuth(res.token, res.user);
+}
+
+export async function changePassword(data: ChangePasswordRequest): Promise<void> {
+  await api.patch('auth/password', { json: data });
 }
 
 export function logout(): void {

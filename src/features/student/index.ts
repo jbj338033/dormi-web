@@ -1,9 +1,6 @@
 export {
-  getAllStudents,
+  getStudents,
   getStudent,
-  getStudentByNumber,
-  getStudentsByRoom,
-  searchStudents,
   createStudent,
   updateStudent,
   deleteStudent,

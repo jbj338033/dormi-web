@@ -1,7 +1,1 @@
-export {
-  getLogs,
-  getLogsByUser,
-  getLogsByEntity,
-  getLogsByDateRange,
-  getLogsByAction,
-} from './api/log-api';
+export { getAuditLogs } from './api/log-api';

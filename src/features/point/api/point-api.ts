@@ -2,34 +2,30 @@ import { api } from '@/shared/api';
 import type {
   Point,
   PointSummary,
-  GrantPointInput,
-  BulkGrantPointInput,
+  GivePointInput,
+  BulkGivePointInput,
 } from '@/entities/point';
 
-export async function getPoint(id: number): Promise<Point> {
-  return api.get(`api/points/${id}`).json<Point>();
+export async function getPointsByStudent(studentId: string): Promise<Point[]> {
+  return api.get<Point[]>(`points/student/${studentId}`);
 }
 
-export async function getPointsByStudent(studentId: number): Promise<Point[]> {
-  return api.get(`api/points/student/${studentId}`).json<Point[]>();
+export async function getPointSummary(studentId: string): Promise<PointSummary> {
+  return api.get<PointSummary>(`points/student/${studentId}/summary`);
 }
 
-export async function getPointSummary(studentId: number): Promise<PointSummary> {
-  return api.get(`api/points/student/${studentId}/summary`).json<PointSummary>();
+export async function givePoint(data: GivePointInput): Promise<Point> {
+  return api.post<Point>('points', { json: data });
 }
 
-export async function grantPoint(studentId: number, data: GrantPointInput): Promise<Point> {
-  return api.post(`api/points/student/${studentId}`, { json: data }).json<Point>();
+export async function bulkGivePoints(data: BulkGivePointInput): Promise<Point[]> {
+  return api.post<Point[]>('points/bulk', { json: data });
 }
 
-export async function bulkGrantPoints(data: BulkGrantPointInput): Promise<Point[]> {
-  return api.post('api/points/bulk', { json: data }).json<Point[]>();
-}
-
-export async function cancelPoint(id: number): Promise<Point> {
-  return api.post(`api/points/${id}/cancel`).json<Point>();
+export async function cancelPoint(id: string): Promise<void> {
+  await api.patch(`points/${id}/cancel`);
 }
 
 export async function resetAllPoints(): Promise<void> {
-  await api.delete('api/points/reset');
+  await api.delete('points/reset');
 }

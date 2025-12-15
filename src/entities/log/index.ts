@@ -1,12 +1,7 @@
 export {
   AuditLogSchema,
-  ActionTypeSchema,
-  EntityTypeSchema,
-  PageableSchema,
-  PageSchema,
   type AuditLog,
-  type ActionType,
-  type EntityType,
-  type Pageable,
-  type Page,
+  type AuditLogFilter,
+  type Pagination,
+  type PaginatedResponse,
 } from './model/types';

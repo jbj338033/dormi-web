@@ -1,7 +1,6 @@
 export {
   UserSchema,
   CreateUserSchema,
-  UpdateUserSchema,
   RoleSchema,
   type User,
   type Role,

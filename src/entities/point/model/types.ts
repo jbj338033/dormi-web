@@ -1,26 +1,7 @@
 import { z } from 'zod';
 
-export const PointTypeSchema = z.enum(['MERIT', 'DEMERIT']);
-export type PointType = z.infer<typeof PointTypeSchema>;
-
-export const PointReasonSchema = z.enum([
-  'LATE_RETURN',
-  'ABSENT_ROLLCALL',
-  'NOISE',
-  'ROOM_UNCLEANED',
-  'UNAUTHORIZED_OUTING',
-  'UNAUTHORIZED_ABSENCE',
-  'SMOKING',
-  'DRINKING',
-  'GOOD_DEED',
-  'CLEAN_ROOM',
-  'VOLUNTEER',
-  'OTHER',
-]);
-export type PointReason = z.infer<typeof PointReasonSchema>;
-
 const StudentInPointSchema = z.object({
-  id: z.number(),
+  id: z.string(),
   studentNumber: z.string(),
   name: z.string(),
   roomNumber: z.string(),
@@ -28,56 +9,46 @@ const StudentInPointSchema = z.object({
 });
 
 const UserInPointSchema = z.object({
-  id: z.number(),
+  id: z.string(),
   email: z.string(),
   name: z.string(),
-  roles: z.array(z.enum(['ADMIN', 'SUPERVISOR', 'COUNCIL'])),
+  role: z.enum(['ADMIN', 'SUPERVISOR', 'COUNCIL']),
+});
+
+const ReasonInPointSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  score: z.number(),
+  type: z.enum(['REWARD', 'PENALTY']),
 });
 
 export const PointSchema = z.object({
-  id: z.number(),
+  id: z.string(),
   student: StudentInPointSchema,
-  type: PointTypeSchema,
-  score: z.number(),
-  reason: PointReasonSchema,
-  reasonDescription: z.string().nullable().optional(),
-  customReason: z.string().nullable().optional(),
-  grantedBy: UserInPointSchema,
+  reason: ReasonInPointSchema,
+  givenBy: UserInPointSchema,
+  givenAt: z.string(),
   cancelled: z.boolean(),
   cancelledAt: z.string().nullable().optional(),
-  cancelledBy: UserInPointSchema.nullable().optional(),
-  createdAt: z.string(),
 });
 
 export type Point = z.infer<typeof PointSchema>;
 
-export const GrantPointFormSchema = z.object({
-  type: PointTypeSchema,
-  score: z.string().min(1, '점수를 입력하세요'),
-  reason: PointReasonSchema,
-  customReason: z.string().optional(),
-});
-
-export type GrantPointFormInput = z.infer<typeof GrantPointFormSchema>;
-
-export interface GrantPointInput {
-  type: PointType;
-  score: number;
-  reason: PointReason;
-  customReason?: string;
-}
-
-export interface BulkGrantPointInput {
-  studentIds: number[];
-  point: GrantPointInput;
-}
-
 export const PointSummarySchema = z.object({
-  studentId: z.number(),
-  meritTotal: z.number(),
-  demeritTotal: z.number(),
+  studentId: z.string(),
+  totalReward: z.number(),
+  totalPenalty: z.number(),
   netScore: z.number(),
-  expulsionWarning: z.boolean(),
 });
 
 export type PointSummary = z.infer<typeof PointSummarySchema>;
+
+export interface GivePointInput {
+  studentId: string;
+  reasonId: string;
+}
+
+export interface BulkGivePointInput {
+  studentIds: string[];
+  reasonId: string;
+}

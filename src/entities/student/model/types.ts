@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
 export const StudentSchema = z.object({
-  id: z.number(),
+  id: z.string(),
   studentNumber: z.string(),
   name: z.string(),
   roomNumber: z.string(),
   grade: z.number().min(1).max(3),
+  createdAt: z.string().optional(),
 });
 
 export type Student = z.infer<typeof StudentSchema>;
@@ -27,6 +28,7 @@ export interface CreateStudentInput {
 }
 
 export interface UpdateStudentInput {
+  studentNumber?: string;
   name?: string;
   roomNumber?: string;
   grade?: number;

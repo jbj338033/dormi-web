@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-zinc-50">
       <Sidebar />
-      <main className="lg:ml-56 min-h-screen">{children}</main>
+      <main className="pt-14 lg:pt-0 lg:ml-56 min-h-screen">{children}</main>
     </div>
   );
 }

@@ -5,14 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { Button, Input } from '@/shared/ui';
+import { Button, Input, PasswordInput } from '@/shared/ui';
 import { login, LoginSchema, type LoginInput } from '@/features/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
   });
 
@@ -29,8 +33,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-sm px-4">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-xl font-semibold text-zinc-900">Dormi</h1>
           <p className="text-sm text-zinc-500 mt-1">기숙사 관리 시스템</p>
@@ -40,14 +44,15 @@ export default function LoginPage() {
           <Input
             {...register('email')}
             type="email"
-            placeholder="이메일"
+            label="이메일"
+            placeholder="email@example.com"
             error={errors.email?.message}
             autoComplete="email"
           />
-          <Input
+          <PasswordInput
             {...register('password')}
-            type="password"
-            placeholder="비밀번호"
+            label="비밀번호"
+            placeholder="비밀번호를 입력하세요"
             error={errors.password?.message}
             autoComplete="current-password"
           />

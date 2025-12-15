@@ -2,44 +2,91 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Upload } from 'lucide-react';
-import { Card, CardContent, Modal, Button } from '@/shared/ui';
+import { Plus, Upload, Users, Home, GraduationCap, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, Badge } from '@/shared/ui';
 import { StudentTable } from '@/widgets/student-table';
 import { StudentForm } from '@/widgets/student-form';
-import { getAllStudents, createStudent, updateStudent, deleteStudent, importStudentsFromCsv } from '@/features/student';
+import { getStudents, createStudent, updateStudent, deleteStudent, importStudentsFromCsv } from '@/features/student';
 import { useAuthStore } from '@/shared/store/auth';
 import { FEATURE_PERMISSIONS } from '@/shared/config/permissions';
 import type { Student, CreateStudentInput } from '@/entities/student';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
+  const [studentToDelete, setStudentToDelete] = useState<Student | undefined>();
   const [importLoading, setImportLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   const hasAnyRole = useAuthStore((state) => state.hasAnyRole);
   const canCreate = hasAnyRole(FEATURE_PERMISSIONS.STUDENT_CREATE);
   const canEdit = hasAnyRole(FEATURE_PERMISSIONS.STUDENT_EDIT);
   const canDelete = hasAnyRole(FEATURE_PERMISSIONS.STUDENT_DELETE);
 
-  const fetchStudents = useCallback(async () => {
+  const fetchStudents = useCallback(async (pageNum: number, append = false) => {
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+
     try {
-      const data = await getAllStudents();
-      setStudents(data);
+      const res = await getStudents({ page: pageNum, limit: 20 });
+      if (append) {
+        setStudents((prev) => [...prev, ...res.data]);
+      } else {
+        setStudents(res.data);
+      }
+      setTotalCount(res.meta.total);
+      setHasMore(pageNum < res.meta.totalPages);
     } catch {
       toast.error('학생 목록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchStudents();
+    fetchStudents(1);
   }, [fetchStudents]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading]);
+
+  useEffect(() => {
+    if (page > 1) {
+      fetchStudents(page, true);
+    }
+  }, [page, fetchStudents]);
+
+  const refresh = () => {
+    setPage(1);
+    setHasMore(true);
+    fetchStudents(1);
+  };
 
   const handleCreate = () => {
     setSelectedStudent(undefined);
@@ -51,14 +98,24 @@ export default function StudentsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (student: Student) => {
-    if (!confirm(`${student.name} 학생을 삭제하시겠습니까?`)) return;
+  const handleDeleteClick = (student: Student) => {
+    setStudentToDelete(student);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return;
+    setDeleteLoading(true);
     try {
-      await deleteStudent(student.id);
+      await deleteStudent(studentToDelete.id);
       toast.success('삭제되었습니다');
-      fetchStudents();
+      setIsDeleteDialogOpen(false);
+      setStudentToDelete(undefined);
+      refresh();
     } catch {
       toast.error('삭제에 실패했습니다');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -73,7 +130,7 @@ export default function StudentsPage() {
         toast.success('등록되었습니다');
       }
       setIsModalOpen(false);
-      fetchStudents();
+      refresh();
     } catch {
       toast.error(selectedStudent ? '수정에 실패했습니다' : '등록에 실패했습니다');
     } finally {
@@ -87,12 +144,10 @@ export default function StudentsPage() {
 
     setImportLoading(true);
     try {
-      const rawContent = await file.text();
-      const content = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const result = await importStudentsFromCsv(content);
-      toast.success(`${result.length}명의 학생이 등록되었습니다`);
+      await importStudentsFromCsv(file);
+      toast.success('학생이 등록되었습니다');
       setIsImportModalOpen(false);
-      fetchStudents();
+      refresh();
     } catch {
       toast.error('CSV 가져오기에 실패했습니다');
     } finally {
@@ -103,83 +158,176 @@ export default function StudentsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="h-5 w-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // 통계 계산
+  const roomCount = new Set(students.map((s) => s.roomNumber)).size;
+  const gradeStats = [1, 2, 3].map((grade) => ({
+    grade,
+    count: students.filter((s) => s.grade === grade).length,
+  }));
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-lg font-semibold text-zinc-900">학생</h1>
-        {canCreate && (
-          <div className="flex gap-2">
-            <Button onClick={() => setIsImportModalOpen(true)} size="sm" variant="secondary">
-              <Upload className="h-4 w-4 mr-1" />
-              CSV
-            </Button>
-            <Button onClick={handleCreate} size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              등록
-            </Button>
-          </div>
-        )}
+      <PageHeader
+        title="학생 관리"
+        description={`총 ${totalCount}명의 학생`}
+        actions={
+          canCreate && (
+            <div className="flex gap-2">
+              <Button onClick={() => setIsImportModalOpen(true)} size="sm" variant="secondary">
+                <Upload className="h-4 w-4 mr-1.5" />
+                CSV 가져오기
+              </Button>
+              <Button onClick={handleCreate} size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                학생 등록
+              </Button>
+            </div>
+          )
+        }
+      />
+
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-sky-50 flex items-center justify-center">
+                <Users className="h-5 w-5 text-sky-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-zinc-900">{totalCount}</p>
+                <p className="text-xs text-zinc-500">전체 학생</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center">
+                <Home className="h-5 w-5 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-zinc-900">{roomCount}</p>
+                <p className="text-xs text-zinc-500">호실</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {gradeStats.slice(0, 2).map((stat) => (
+          <Card key={stat.grade} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <GraduationCap className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-zinc-900">{stat.count}</p>
+                  <p className="text-xs text-zinc-500">{stat.grade}학년</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
+      {/* 학생 목록 */}
       <Card>
         <CardContent>
-          <StudentTable
-            students={students}
-            onEdit={canEdit ? handleEdit : undefined}
-            onDelete={canDelete ? handleDelete : undefined}
-          />
+          {loading ? (
+            <TableSkeleton rows={8} cols={5} />
+          ) : (
+            <>
+              <StudentTable
+                students={students}
+                onEdit={canEdit ? handleEdit : undefined}
+                onDelete={canDelete ? handleDeleteClick : undefined}
+              />
+              {hasMore && (
+                <div ref={loaderRef} className="flex flex-col items-center gap-2 py-6 border-t border-zinc-100 mt-4">
+                  {loadingMore ? (
+                    <div className="h-5 w-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ChevronDown className="h-5 w-5 text-zinc-400 animate-bounce" />
+                      <p className="text-xs text-zinc-400">스크롤하여 더 불러오기</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {!hasMore && students.length > 0 && (
+                <div className="text-center py-4 border-t border-zinc-100 mt-4">
+                  <p className="text-xs text-zinc-400">모든 학생을 불러왔습니다</p>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
+      {/* 학생 등록/수정 모달 */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedStudent ? '학생 수정' : '학생 등록'}>
         <StudentForm student={selectedStudent} onSubmit={handleSubmit} onCancel={() => setIsModalOpen(false)} loading={formLoading} />
       </Modal>
 
+      {/* CSV 가져오기 모달 */}
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="CSV 가져오기">
         <div className="space-y-4">
-          <div className="text-sm text-zinc-600">
-            <p className="mb-2">CSV 파일 형식:</p>
-            <code className="block bg-zinc-100 p-2 rounded text-xs">
+          <div className="bg-zinc-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FileSpreadsheet className="h-4 w-4 text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-700">CSV 파일 형식</span>
+            </div>
+            <code className="block bg-white border border-zinc-200 p-3 rounded text-xs font-mono text-zinc-600">
               학번,이름,호실,학년
+              <br />
+              20240001,홍길동,101,1
+              <br />
+              20240002,김철수,102,2
             </code>
           </div>
-          <div className="border-2 border-dashed border-zinc-200 rounded-lg p-6 text-center">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="csv-input"
-            />
-            <label
-              htmlFor="csv-input"
-              className="cursor-pointer flex flex-col items-center gap-2"
-            >
-              <Upload className="h-8 w-8 text-zinc-400" />
-              <span className="text-sm text-zinc-600">CSV 파일을 선택하세요</span>
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              importLoading ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
+            }`}
+          >
+            <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="csv-input" disabled={importLoading} />
+            <label htmlFor="csv-input" className={`flex flex-col items-center gap-3 ${importLoading ? '' : 'cursor-pointer'}`}>
+              {importLoading ? (
+                <div className="h-8 w-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center">
+                  <Upload className="h-6 w-6 text-zinc-500" />
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-medium text-zinc-700">{importLoading ? '업로드 중...' : 'CSV 파일을 선택하세요'}</p>
+                <p className="text-xs text-zinc-500 mt-1">또는 여기에 파일을 드래그하세요</p>
+              </div>
             </label>
           </div>
-          {importLoading && (
-            <div className="flex items-center justify-center py-2">
-              <div className="h-5 w-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
-            </div>
-          )}
-          <div className="flex justify-end">
-            <Button variant="secondary" onClick={() => setIsImportModalOpen(false)}>
-              닫기
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setIsImportModalOpen(false)} disabled={importLoading}>
+              취소
             </Button>
           </div>
         </div>
       </Modal>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setStudentToDelete(undefined);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="학생 삭제"
+        description={studentToDelete ? `${studentToDelete.name} 학생을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="danger"
+        loading={deleteLoading}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ export const PAGE_PERMISSIONS: Record<string, Role[]> = {
   '/dashboard': ['ADMIN', 'SUPERVISOR', 'COUNCIL'],
   '/dashboard/students': ['ADMIN', 'SUPERVISOR', 'COUNCIL'],
   '/dashboard/points': ['ADMIN', 'SUPERVISOR', 'COUNCIL'],
+  '/dashboard/point-reasons': ['ADMIN'],
   '/dashboard/duties': ['ADMIN', 'SUPERVISOR', 'COUNCIL'],
   '/dashboard/users': ['ADMIN'],
   '/dashboard/logs': ['ADMIN'],

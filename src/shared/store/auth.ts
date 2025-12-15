@@ -5,10 +5,10 @@ import { persist } from 'zustand/middleware';
 import type { Role } from '@/entities/user';
 
 interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
-  roles: Role[];
+  role: Role;
 }
 
 interface AuthState {
@@ -27,8 +27,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       setAuth: (token, user) => set({ token, user }),
       clearAuth: () => set({ token: null, user: null }),
-      hasRole: (role) => get().user?.roles.includes(role) ?? false,
-      hasAnyRole: (roles) => roles.some((role) => get().user?.roles.includes(role)),
+      hasRole: (role) => get().user?.role === role,
+      hasAnyRole: (roles) => roles.some((role) => get().user?.role === role),
     }),
     { name: 'auth-storage' }
   )

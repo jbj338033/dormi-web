@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { Plus, Edit, Trash2, Users, Shield, UserCheck, Mail, User } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -136,81 +136,18 @@ export default function UsersPage() {
     }
   };
 
-  // 역할별 통계
-  const adminCount = users.filter((u) => u.role === 'ADMIN').length;
-  const supervisorCount = users.filter((u) => u.role === 'SUPERVISOR').length;
-  const councilCount = users.filter((u) => u.role === 'COUNCIL').length;
-
   return (
     <div className="p-6">
       <PageHeader
         title="계정 관리"
-        description={`총 ${users.length}개의 계정`}
         actions={
           <Button onClick={openCreateModal} size="sm">
             <Plus className="h-4 w-4 mr-1.5" />
-            계정 생성
+            등록
           </Button>
         }
       />
 
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-sky-50 flex items-center justify-center">
-                <Users className="h-5 w-5 text-sky-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{users.length}</p>
-                <p className="text-xs text-zinc-500">전체 계정</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-red-50 flex items-center justify-center">
-                <Shield className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{adminCount}</p>
-                <p className="text-xs text-zinc-500">관리자</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-violet-50 flex items-center justify-center">
-                <User className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{supervisorCount}</p>
-                <p className="text-xs text-zinc-500">사감</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <UserCheck className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zinc-900">{councilCount}</p>
-                <p className="text-xs text-zinc-500">자치위원</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 계정 목록 */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -221,10 +158,10 @@ export default function UsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>사용자</TableHead>
+                  <TableHead>이름</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>역할</TableHead>
-                  <TableHead className="w-24"></TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -243,20 +180,8 @@ export default function UsersPage() {
                 ) : (
                   users.map((user) => (
                     <TableRow key={user.id} className="hover:bg-zinc-50 transition-colors">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-zinc-100 flex items-center justify-center">
-                            <User className="h-4 w-4 text-zinc-500" />
-                          </div>
-                          <span className="font-medium text-zinc-900">{user.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 text-zinc-600">
-                          <Mail className="h-3.5 w-3.5" />
-                          {user.email}
-                        </div>
-                      </TableCell>
+                      <TableCell className="font-medium text-zinc-900">{user.name}</TableCell>
+                      <TableCell className="text-zinc-600">{user.email}</TableCell>
                       <TableCell>
                         <Badge variant={ROLE_VARIANTS[user.role]}>{ROLE_LABELS[user.role]}</Badge>
                       </TableCell>

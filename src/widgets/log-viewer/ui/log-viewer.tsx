@@ -68,7 +68,7 @@ export function LogViewer({ logs }: LogViewerProps) {
         {logs.map((log) => (
           <TableRow key={log.id}>
             <TableCell className="text-xs text-zinc-500 whitespace-nowrap">
-              {formatDateTime(log.timestamp)}
+              {formatDateTime(log.createdAt)}
             </TableCell>
             <TableCell>
               <Badge variant={actionVariants[log.action] ?? 'default'}>
@@ -82,7 +82,11 @@ export function LogViewer({ logs }: LogViewerProps) {
               <span className="ml-1 font-mono text-xs text-zinc-400">#{log.entityId}</span>
             </TableCell>
             <TableCell className="text-sm text-zinc-600 max-w-xs truncate">
-              {log.details ?? '-'}
+              {log.details
+                ? typeof log.details === 'string'
+                  ? log.details
+                  : JSON.stringify(log.details)
+                : '-'}
             </TableCell>
           </TableRow>
         ))}

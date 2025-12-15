@@ -25,6 +25,22 @@ interface DutyCalendarProps {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+const sortSchedules = (schedules: DutySchedule[]) => {
+  return [...schedules].sort((a, b) => {
+    if (a.type === 'DORM' && b.type !== 'DORM') return -1;
+    if (a.type !== 'DORM' && b.type === 'DORM') return 1;
+    if (a.type === 'NIGHT_STUDY' && b.type === 'NIGHT_STUDY') {
+      return (a.floor || 0) - (b.floor || 0);
+    }
+    return 0;
+  });
+};
+
+const getTypeLabel = (schedule: DutySchedule) => {
+  if (schedule.type === 'DORM') return '기숙사';
+  return `${schedule.floor}층`;
+};
+
 export function DutyCalendar({
   currentMonth,
   schedules,
@@ -38,7 +54,7 @@ export function DutyCalendar({
   }, [currentMonth]);
 
   const getSchedulesForDay = (date: Date) => {
-    return schedules.filter((s) => isSameDay(new Date(s.date), date));
+    return sortSchedules(schedules.filter((s) => isSameDay(new Date(s.date), date)));
   };
 
   const isMyDuty = (daySchedules: DutySchedule[]) => {
@@ -67,7 +83,6 @@ export function DutyCalendar({
           const isCurrentMonth = isSameMonth(day, currentMonth);
           const isMyDay = isMyDuty(daySchedules);
           const dayOfWeek = day.getDay();
-          const mySchedules = daySchedules.filter((s) => s.assignee.id === currentUserId);
 
           return (
             <div
@@ -76,7 +91,7 @@ export function DutyCalendar({
               className={cn(
                 'min-h-24 p-1.5 border-b border-r border-zinc-100 cursor-pointer transition-colors',
                 !isCurrentMonth && 'bg-zinc-50/50',
-                isMyDay && isCurrentMonth && 'bg-amber-50/70',
+                isMyDay && isCurrentMonth && 'bg-amber-50/50',
                 onSelectDate && 'hover:bg-zinc-50'
               )}
             >
@@ -93,9 +108,6 @@ export function DutyCalendar({
                 >
                   {format(day, 'd')}
                 </span>
-                {isCurrentMonth && isMyDay && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                )}
               </div>
 
               {isCurrentMonth && daySchedules.length > 0 && (
@@ -107,15 +119,12 @@ export function DutyCalendar({
                         key={schedule.id}
                         className={cn(
                           'text-[10px] px-1 py-0.5 rounded truncate',
-                          isMe
-                            ? 'bg-amber-200 text-amber-900 font-medium'
-                            : schedule.type === 'DORM'
-                            ? 'bg-sky-100 text-sky-700'
-                            : 'bg-violet-100 text-violet-700',
+                          schedule.type === 'DORM' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700',
+                          isMe && 'ring-1 ring-amber-400 font-medium',
                           schedule.completed && 'opacity-50'
                         )}
                       >
-                        {schedule.assignee.name}
+                        {getTypeLabel(schedule)} {schedule.assignee.name}
                       </div>
                     );
                   })}
@@ -128,16 +137,16 @@ export function DutyCalendar({
 
       <div className="flex items-center gap-4 mt-4 px-2 text-xs text-zinc-500">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-200" />
-          <span>내 당직</span>
-        </div>
-        <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-sky-100" />
           <span>기숙사</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-violet-100" />
           <span>심야자습</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-zinc-100 ring-1 ring-amber-400" />
+          <span>내 당직</span>
         </div>
       </div>
     </div>

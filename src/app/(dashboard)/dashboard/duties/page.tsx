@@ -274,30 +274,16 @@ export default function DutiesPage() {
             <Card>
               <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-zinc-900">내 예정 당직</h2>
-                <Badge variant="warning">{myUpcomingDuties.length}건</Badge>
+                <span className="text-xs text-zinc-500">{myUpcomingDuties.length}건</span>
               </div>
               <CardContent className="p-3">
                 <div className="space-y-2">
                   {myUpcomingDuties.map((duty) => (
-                    <div key={duty.id} className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-100">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-amber-900">{formatDateKorean(duty.date)}</p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            {duty.type === 'DORM' ? (
-                              <Home className="h-3 w-3 text-amber-600" />
-                            ) : (
-                              <Clock className="h-3 w-3 text-amber-600" />
-                            )}
-                            <p className="text-xs text-amber-700">
-                              {duty.type === 'DORM' ? '기숙사 당직' : `심야자습 ${duty.floor}층`}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant={duty.type === 'DORM' ? 'info' : 'warning'} className="text-xs">
-                          {duty.type === 'DORM' ? '기숙사' : '자습'}
-                        </Badge>
-                      </div>
+                    <div key={duty.id} className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-center justify-between">
+                      <span className="text-sm text-amber-900">{formatDateKorean(duty.date)}</span>
+                      <Badge variant={duty.type === 'DORM' ? 'info' : 'warning'} className="text-xs">
+                        {duty.type === 'DORM' ? '기숙사' : `${duty.floor}층`}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -332,52 +318,42 @@ export default function DutiesPage() {
                 />
               ) : (
                 <div className="p-3 space-y-2">
-                  {selectedSchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      className={cn(
-                        'p-4 rounded-lg border transition-all',
-                        schedule.assignee.id === user?.id
-                          ? 'border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50'
-                          : 'border-zinc-100 bg-zinc-50 hover:bg-zinc-100'
-                      )}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
-                              schedule.type === 'DORM' ? 'bg-sky-100' : 'bg-amber-100'
-                            )}
-                          >
-                            {schedule.type === 'DORM' ? (
-                              <Home className="h-4 w-4 text-sky-600" />
-                            ) : (
-                              <Clock className="h-4 w-4 text-amber-600" />
-                            )}
-                          </div>
-                          <div>
-                            <Badge variant={schedule.type === 'DORM' ? 'info' : 'warning'} className="mb-1.5 text-xs">
-                              {schedule.type === 'DORM' ? '기숙사 당직' : `심야자습 ${schedule.floor}층`}
+                  {[...selectedSchedules]
+                    .sort((a, b) => {
+                      if (a.type === 'DORM' && b.type !== 'DORM') return -1;
+                      if (a.type !== 'DORM' && b.type === 'DORM') return 1;
+                      return (a.floor || 0) - (b.floor || 0);
+                    })
+                    .map((schedule) => {
+                      const isMe = schedule.assignee.id === user?.id;
+                      return (
+                        <div
+                          key={schedule.id}
+                          className={cn(
+                            'p-3 rounded-lg border flex items-center justify-between',
+                            isMe ? 'border-amber-200 bg-amber-50' : 'border-zinc-100 bg-zinc-50'
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Badge variant={schedule.type === 'DORM' ? 'info' : 'warning'} className="text-xs shrink-0">
+                              {schedule.type === 'DORM' ? '기숙사' : `${schedule.floor}층`}
                             </Badge>
-                            <p className="text-sm font-medium text-zinc-900">{schedule.assignee.name}</p>
-                            {schedule.assignee.id === user?.id && (
-                              <p className="text-xs text-amber-600 mt-0.5">내 당직</p>
-                            )}
+                            <span className={cn('text-sm', isMe ? 'font-medium text-amber-900' : 'text-zinc-700')}>
+                              {schedule.assignee.name}
+                              {isMe && <span className="text-amber-600 ml-1">(나)</span>}
+                            </span>
                           </div>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteClick(schedule)}
+                              className="p-1.5 rounded hover:bg-red-50 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />
+                            </button>
+                          )}
                         </div>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteClick(schedule)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                            title="삭제"
-                          >
-                            <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </CardContent>

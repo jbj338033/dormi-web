@@ -1,10 +1,11 @@
 import { api } from '@/shared/api';
 import type {
   DutySchedule,
+  DutySwapRequest,
   CreateDutyInput,
   UpdateDutyInput,
   GenerateDutyInput,
-  SwapDutyInput,
+  CreateSwapRequestInput,
 } from '@/entities/duty';
 
 export async function getDuties(params?: {
@@ -12,18 +13,14 @@ export async function getDuties(params?: {
   assigneeId?: string;
   startDate?: string;
   endDate?: string;
-  page?: number;
-  limit?: number;
-}) {
+}): Promise<DutySchedule[]> {
   const searchParams = new URLSearchParams();
   if (params?.type) searchParams.set('type', params.type);
   if (params?.assigneeId) searchParams.set('assigneeId', params.assigneeId);
   if (params?.startDate) searchParams.set('startDate', params.startDate);
   if (params?.endDate) searchParams.set('endDate', params.endDate);
-  if (params?.page) searchParams.set('page', String(params.page));
-  if (params?.limit) searchParams.set('limit', String(params.limit));
 
-  return api.paginated<DutySchedule>('duties', { searchParams });
+  return api.get<DutySchedule[]>('duties', { searchParams });
 }
 
 export async function getDuty(id: string): Promise<DutySchedule> {
@@ -46,10 +43,22 @@ export async function generateDuties(data: GenerateDutyInput): Promise<DutySched
   return api.post<DutySchedule[]>('duties/generate', { json: data });
 }
 
-export async function completeDuty(id: string): Promise<void> {
-  await api.patch(`duties/${id}/complete`);
+export async function createSwapRequest(dutyId: string, data: CreateSwapRequestInput): Promise<DutySwapRequest> {
+  return api.post<DutySwapRequest>(`duties/${dutyId}/swap-requests`, { json: data });
 }
 
-export async function swapDuty(id: string, data: SwapDutyInput): Promise<void> {
-  await api.post(`duties/${id}/swap`, { json: data });
+export async function getMySwapRequests(): Promise<DutySwapRequest[]> {
+  return api.get<DutySwapRequest[]>('duty-swap-requests/my');
+}
+
+export async function getPendingSwapRequests(): Promise<DutySwapRequest[]> {
+  return api.get<DutySwapRequest[]>('duty-swap-requests/pending');
+}
+
+export async function approveSwapRequest(id: string): Promise<void> {
+  await api.patch(`duty-swap-requests/${id}/approve`);
+}
+
+export async function rejectSwapRequest(id: string): Promise<void> {
+  await api.patch(`duty-swap-requests/${id}/reject`);
 }

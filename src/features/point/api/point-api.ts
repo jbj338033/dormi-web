@@ -6,6 +6,21 @@ import type {
   BulkGivePointInput,
 } from '@/entities/point';
 
+export async function getPoints(params?: {
+  studentId?: string;
+  type?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<Point[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.studentId) searchParams.set('studentId', params.studentId);
+  if (params?.type) searchParams.set('type', params.type);
+  if (params?.startDate) searchParams.set('startDate', params.startDate);
+  if (params?.endDate) searchParams.set('endDate', params.endDate);
+
+  return api.get<Point[]>('points', { searchParams });
+}
+
 export async function getPointsByStudent(studentId: string): Promise<Point[]> {
   return api.get<Point[]>(`points/student/${studentId}`);
 }

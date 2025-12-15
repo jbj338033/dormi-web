@@ -5,15 +5,13 @@ import type {
   UpdateStudentInput,
 } from '@/entities/student';
 
-export async function getStudents(params?: { page?: number; limit?: number; search?: string; grade?: number; room?: string }) {
+export async function getStudents(params?: { search?: string; grade?: number; room?: string }): Promise<Student[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.set('page', String(params.page));
-  if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.search) searchParams.set('search', params.search);
   if (params?.grade) searchParams.set('grade', String(params.grade));
   if (params?.room) searchParams.set('room', params.room);
 
-  return api.paginated<Student>('students', { searchParams });
+  return api.get<Student[]>('students', { searchParams });
 }
 
 export async function getStudent(id: string): Promise<Student> {

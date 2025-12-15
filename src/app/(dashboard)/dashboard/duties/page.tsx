@@ -4,14 +4,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
-import { Card, CardContent, Modal, Button, Select, Input, Badge, Checkbox, PageHeader, ConfirmDialog, EmptyState, Skeleton } from '@/shared/ui';
+import { Plus, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import { Card, CardContent, Modal, Button, Select, Input, Checkbox, PageHeader, Skeleton } from '@/shared/ui';
 import { DutyCalendar } from '@/widgets/duty-calendar';
-import { getDuties, generateDuties, deleteDuty } from '@/features/duty';
+import {
+  getDuties,
+  generateDuties,
+  createSwapRequest,
+  getMySwapRequests,
+  getPendingSwapRequests,
+  approveSwapRequest,
+  rejectSwapRequest,
+} from '@/features/duty';
 import { getAllUsers } from '@/features/user';
 import { useAuthStore } from '@/shared/store/auth';
 import { FEATURE_PERMISSIONS } from '@/shared/config/permissions';
-import type { DutySchedule, DutyType } from '@/entities/duty';
+import type { DutySchedule, DutyType, DutySwapRequest } from '@/entities/duty';
 import type { User as UserType } from '@/entities/user';
 import { DUTY_TYPE_LABELS } from '@/shared/config/constants';
 import { formatDateKorean } from '@/shared/lib';
@@ -23,12 +31,17 @@ export default function DutiesPage() {
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedSchedules, setSelectedSchedules] = useState<DutySchedule[]>([]);
   const [formLoading, setFormLoading] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [scheduleToDelete, setScheduleToDelete] = useState<DutySchedule | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [swapMode, setSwapMode] = useState(false);
+  const [swapSource, setSwapSource] = useState<DutySchedule | null>(null);
+  const [swapTarget, setSwapTarget] = useState<DutySchedule | null>(null);
+  const [swapLoading, setSwapLoading] = useState(false);
+
+  const [mySwapRequests, setMySwapRequests] = useState<DutySwapRequest[]>([]);
+  const [pendingSwapRequests, setPendingSwapRequests] = useState<DutySwapRequest[]>([]);
+  const [approveLoading, setApproveLoading] = useState<string | null>(null);
+  const [rejectLoading, setRejectLoading] = useState<string | null>(null);
 
   const [dutyType, setDutyType] = useState<DutyType>('DORM');
   const [startDate, setStartDate] = useState('');
@@ -39,15 +52,14 @@ export default function DutiesPage() {
   const user = useAuthStore((state) => state.user);
   const hasAnyRole = useAuthStore((state) => state.hasAnyRole);
   const canCreate = hasAnyRole(FEATURE_PERMISSIONS.DUTY_CREATE);
-  const canDelete = hasAnyRole(FEATURE_PERMISSIONS.DUTY_DELETE);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
       const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-      const res = await getDuties({ startDate: start, endDate: end, limit: 100 });
-      setSchedules(res.data);
+      const data = await getDuties({ startDate: start, endDate: end });
+      setSchedules(data);
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다');
     } finally {
@@ -60,15 +72,25 @@ export default function DutiesPage() {
     try {
       const data = await getAllUsers();
       setUsers(data);
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [canCreate]);
+
+  const fetchSwapRequests = useCallback(async () => {
+    try {
+      const [my, pending] = await Promise.all([
+        getMySwapRequests(),
+        getPendingSwapRequests(),
+      ]);
+      setMySwapRequests(my);
+      setPendingSwapRequests(pending);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetchData();
     fetchUsers();
-  }, [fetchData, fetchUsers]);
+    fetchSwapRequests();
+  }, [fetchData, fetchUsers, fetchSwapRequests]);
 
   const resetForm = () => {
     setDutyType('DORM');
@@ -76,6 +98,12 @@ export default function DutiesPage() {
     setEndDate('');
     setSelectedAssignees([]);
     setFloor(undefined);
+  };
+
+  const resetSwapMode = () => {
+    setSwapMode(false);
+    setSwapSource(null);
+    setSwapTarget(null);
   };
 
   const handleGenerate = async () => {
@@ -108,31 +136,74 @@ export default function DutiesPage() {
     }
   };
 
-  const handleDeleteClick = (schedule: DutySchedule) => {
-    setScheduleToDelete(schedule);
-    setIsDeleteDialogOpen(true);
-  };
+  const handleScheduleClick = (schedule: DutySchedule) => {
+    if (!swapMode) return;
 
-  const handleDeleteConfirm = async () => {
-    if (!scheduleToDelete) return;
-    setDeleteLoading(true);
-    try {
-      await deleteDuty(scheduleToDelete.id);
-      toast.success('삭제되었습니다');
-      setIsDeleteDialogOpen(false);
-      setScheduleToDelete(null);
-      fetchData();
-      setSelectedSchedules((prev) => prev.filter((s) => s.id !== scheduleToDelete.id));
-    } catch {
-      toast.error('삭제에 실패했습니다');
-    } finally {
-      setDeleteLoading(false);
+    const isMe = schedule.assignee.id === user?.id;
+    const isFuture = new Date(schedule.date) >= new Date();
+
+    if (!swapSource) {
+      if (isMe && isFuture) {
+        setSwapSource(schedule);
+      } else {
+        toast.error('내 당직을 먼저 선택하세요');
+      }
+    } else {
+      if (isMe) {
+        setSwapSource(schedule);
+        setSwapTarget(null);
+      } else if (
+        schedule.type === swapSource.type &&
+        (schedule.type === 'DORM' || schedule.floor === swapSource.floor) &&
+        isFuture
+      ) {
+        setSwapTarget(schedule);
+      } else {
+        toast.error('같은 유형의 당직만 교체할 수 있습니다');
+      }
     }
   };
 
-  const handleSelectDate = (date: Date, daySchedules: DutySchedule[]) => {
-    setSelectedDate(date);
-    setSelectedSchedules(daySchedules);
+  const handleSwapConfirm = async () => {
+    if (!swapSource || !swapTarget) return;
+    setSwapLoading(true);
+    try {
+      await createSwapRequest(swapSource.id, { targetDutyId: swapTarget.id });
+      toast.success(`${swapTarget.assignee.name}님에게 교체 신청 완료`);
+      resetSwapMode();
+      fetchSwapRequests();
+    } catch {
+      toast.error('신청 실패');
+    } finally {
+      setSwapLoading(false);
+    }
+  };
+
+  const handleApprove = async (request: DutySwapRequest) => {
+    setApproveLoading(request.id);
+    try {
+      await approveSwapRequest(request.id);
+      toast.success('승인 완료');
+      fetchSwapRequests();
+      fetchData();
+    } catch {
+      toast.error('승인 실패');
+    } finally {
+      setApproveLoading(null);
+    }
+  };
+
+  const handleReject = async (request: DutySwapRequest) => {
+    setRejectLoading(request.id);
+    try {
+      await rejectSwapRequest(request.id);
+      toast.success('거절 완료');
+      fetchSwapRequests();
+    } catch {
+      toast.error('거절 실패');
+    } finally {
+      setRejectLoading(null);
+    }
   };
 
   const toggleAssignee = (id: string) => {
@@ -143,168 +214,159 @@ export default function DutiesPage() {
 
   const councilUsers = users.filter((u) => u.role === 'COUNCIL');
   const typeOptions = Object.entries(DUTY_TYPE_LABELS).map(([value, label]) => ({ value, label }));
-
-  const myUpcomingDuties = schedules
-    .filter((s) => s.assignee.id === user?.id && new Date(s.date) >= new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 5);
-
-  const monthTotalDuties = schedules.length;
-  const monthCompletedDuties = schedules.filter((s) => s.completed).length;
+  const pendingCount = pendingSwapRequests.length;
+  const myPendingCount = mySwapRequests.filter((r) => r.status === 'PENDING').length;
 
   return (
     <div className="p-6">
       <PageHeader
         title="당직 관리"
         actions={
-          canCreate && (
-            <Button onClick={() => setIsCreateModalOpen(true)} size="sm">
-              <Plus className="h-4 w-4 mr-1.5" />
-              당직 생성
+          <div className="flex items-center gap-2">
+            <Button
+              variant={swapMode ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => swapMode ? resetSwapMode() : setSwapMode(true)}
+            >
+              <ArrowLeftRight className="h-4 w-4 mr-1.5" />
+              {swapMode ? '취소' : '교체'}
             </Button>
-          )
+            {canCreate && (
+              <Button onClick={() => setIsCreateModalOpen(true)} size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                생성
+              </Button>
+            )}
+          </div>
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 캘린더 */}
-        <div className="lg:col-span-2">
-          <Card>
-            <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-zinc-900">{format(currentMonth, 'yyyy년 M월', { locale: ko })}</h2>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
-                  <ChevronLeft className="h-4 w-4" />
+      {swapMode && (
+        <div className="mb-4 p-4 bg-sky-50 border border-sky-200 rounded-lg">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-sm font-medium text-sky-900">교체 모드</p>
+              <p className="text-xs text-sky-700 mt-0.5">
+                {!swapSource
+                  ? '내 당직을 선택하세요'
+                  : !swapTarget
+                  ? '교체할 상대방의 당직을 선택하세요'
+                  : '교체 준비 완료'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {swapSource && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="px-2 py-1 bg-sky-100 rounded text-sky-800">
+                    {formatDateKorean(swapSource.date)}
+                  </span>
+                  {swapTarget && (
+                    <>
+                      <span className="text-sky-600">↔</span>
+                      <span className="px-2 py-1 bg-sky-100 rounded text-sky-800">
+                        {swapTarget.assignee.name} ({format(new Date(swapTarget.date), 'M/d')})
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+              {swapSource && swapTarget && (
+                <Button size="sm" onClick={handleSwapConfirm} loading={swapLoading}>
+                  신청
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => setCurrentMonth(new Date())}>
-                  오늘
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingCount > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm font-medium text-amber-900 mb-3">받은 교체 신청 {pendingCount}건</p>
+          <div className="space-y-2">
+            {pendingSwapRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-100">
+                <div className="text-sm">
+                  <span className="font-medium text-zinc-900">{req.requester.name}</span>
+                  <span className="text-zinc-500 mx-2">·</span>
+                  <span className="text-zinc-600">
+                    {format(new Date(req.sourceDuty.date), 'M/d')} ↔ {format(new Date(req.targetDuty.date), 'M/d')}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleReject(req)}
+                    loading={rejectLoading === req.id}
+                    disabled={approveLoading === req.id}
+                  >
+                    거절
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleApprove(req)}
+                    loading={approveLoading === req.id}
+                    disabled={rejectLoading === req.id}
+                  >
+                    승인
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {myPendingCount > 0 && !swapMode && (
+        <div className="mb-4 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+          <p className="text-sm text-zinc-600">보낸 교체 신청 {myPendingCount}건 대기중</p>
+        </div>
+      )}
+
+      <Card>
+        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-900">{format(currentMonth, 'yyyy년 M월', { locale: ko })}</h2>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setCurrentMonth(new Date())}>
+              오늘
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-7 gap-2">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <Skeleton key={i} className="h-6 rounded" />
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {Array.from({ length: 35 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24 rounded" />
+                ))}
               </div>
             </div>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="p-6 space-y-4">
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <Skeleton key={i} className="h-6 rounded" />
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: 35 }).map((_, i) => (
-                      <Skeleton key={i} className="h-20 rounded" />
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <DutyCalendar
-                  currentMonth={currentMonth}
-                  schedules={schedules}
-                  currentUserId={user?.id}
-                  onSelectDate={handleSelectDate}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 사이드바 */}
-        <div className="space-y-4">
-          {/* 내 당직 */}
-          {myUpcomingDuties.length > 0 && (
-            <Card>
-              <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-zinc-900">내 예정 당직</h2>
-                <span className="text-xs text-zinc-500">{myUpcomingDuties.length}건</span>
-              </div>
-              <CardContent className="p-3">
-                <div className="space-y-2">
-                  {myUpcomingDuties.map((duty) => (
-                    <div key={duty.id} className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-center justify-between">
-                      <span className="text-sm text-amber-900">{formatDateKorean(duty.date)}</span>
-                      <Badge variant={duty.type === 'DORM' ? 'info' : 'warning'} className="text-xs">
-                        {duty.type === 'DORM' ? '기숙사' : `${duty.floor}층`}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          ) : (
+            <DutyCalendar
+              currentMonth={currentMonth}
+              schedules={schedules}
+              currentUserId={user?.id}
+              swapMode={swapMode}
+              swapSource={swapSource}
+              swapTarget={swapTarget}
+              onScheduleClick={handleScheduleClick}
+            />
           )}
+        </CardContent>
+      </Card>
 
-          {/* 선택된 날짜 정보 */}
-          <Card>
-            <div className="px-5 py-4 border-b border-zinc-100">
-              <h2 className="text-sm font-semibold text-zinc-900">
-                {selectedDate ? formatDateKorean(selectedDate) : '날짜 선택'}
-              </h2>
-              {selectedDate && (
-                <p className="text-xs text-zinc-500 mt-0.5">{selectedSchedules.length}건의 당직</p>
-              )}
-            </div>
-            <CardContent className="p-0">
-              {!selectedDate ? (
-                <EmptyState
-                  variant="duties"
-                  title="날짜를 선택하세요"
-                  description="캘린더에서 날짜를 클릭하면 해당 날짜의 당직을 확인할 수 있습니다"
-                  className="py-8"
-                />
-              ) : selectedSchedules.length === 0 ? (
-                <EmptyState
-                  variant="duties"
-                  title="당직이 없습니다"
-                  description="선택한 날짜에 등록된 당직이 없습니다"
-                  className="py-8"
-                />
-              ) : (
-                <div className="p-3 space-y-2">
-                  {[...selectedSchedules]
-                    .sort((a, b) => {
-                      if (a.type === 'DORM' && b.type !== 'DORM') return -1;
-                      if (a.type !== 'DORM' && b.type === 'DORM') return 1;
-                      return (a.floor || 0) - (b.floor || 0);
-                    })
-                    .map((schedule) => {
-                      const isMe = schedule.assignee.id === user?.id;
-                      return (
-                        <div
-                          key={schedule.id}
-                          className={cn(
-                            'p-3 rounded-lg border flex items-center justify-between',
-                            isMe ? 'border-amber-200 bg-amber-50' : 'border-zinc-100 bg-zinc-50'
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Badge variant={schedule.type === 'DORM' ? 'info' : 'warning'} className="text-xs shrink-0">
-                              {schedule.type === 'DORM' ? '기숙사' : `${schedule.floor}층`}
-                            </Badge>
-                            <span className={cn('text-sm', isMe ? 'font-medium text-amber-900' : 'text-zinc-700')}>
-                              {schedule.assignee.name}
-                              {isMe && <span className="text-amber-600 ml-1">(나)</span>}
-                            </span>
-                          </div>
-                          {canDelete && (
-                            <button
-                              onClick={() => handleDeleteClick(schedule)}
-                              className="p-1.5 rounded hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* 당직 생성 모달 */}
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => {
@@ -365,7 +427,6 @@ export default function DutiesPage() {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              type="button"
               variant="secondary"
               onClick={() => {
                 setIsCreateModalOpen(false);
@@ -380,23 +441,6 @@ export default function DutiesPage() {
           </div>
         </div>
       </Modal>
-
-      {/* 삭제 확인 다이얼로그 */}
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => {
-          setIsDeleteDialogOpen(false);
-          setScheduleToDelete(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        title="당직 삭제"
-        description={
-          scheduleToDelete ? `${scheduleToDelete.assignee.name}님의 ${formatDateKorean(scheduleToDelete.date)} 당직을 삭제하시겠습니까?` : ''
-        }
-        confirmText="삭제"
-        variant="danger"
-        loading={deleteLoading}
-      />
     </div>
   );
 }

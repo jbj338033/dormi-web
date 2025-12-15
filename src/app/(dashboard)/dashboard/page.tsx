@@ -18,12 +18,12 @@ export default function DashboardPage() {
     async function fetchData() {
       try {
         const today = format(new Date(), 'yyyy-MM-dd');
-        const [studentsRes, dutiesRes] = await Promise.all([
-          getStudents({ page: 1, limit: 100 }),
-          getDuties({ startDate: today, endDate: today, limit: 50 }),
+        const [studentsData, dutiesData] = await Promise.all([
+          getStudents(),
+          getDuties({ startDate: today, endDate: today }),
         ]);
-        setStudents(studentsRes.data);
-        setTodayDuties(dutiesRes.data);
+        setStudents(studentsData);
+        setTodayDuties(dutiesData);
       } catch {
         // handle error silently
       } finally {
@@ -33,7 +33,6 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const incompleteDuties = todayDuties.filter((d) => !d.completed).length;
   const todayFormatted = format(new Date(), 'M월 d일 (EEEE)', { locale: ko });
 
   const sortedDuties = [...todayDuties].sort((a, b) => {
@@ -51,9 +50,7 @@ export default function DashboardPage() {
           <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-900">오늘의 당직</h2>
             {todayDuties.length > 0 && (
-              <span className="text-xs text-zinc-500">
-                {incompleteDuties === 0 ? '모두 완료' : `${incompleteDuties}개 대기`}
-              </span>
+              <span className="text-xs text-zinc-500">{todayDuties.length}명</span>
             )}
           </div>
           <CardContent className="p-0">
@@ -75,9 +72,6 @@ export default function DashboardPage() {
                       </Badge>
                       <span className="text-sm text-zinc-900">{duty.assignee?.name || '-'}</span>
                     </div>
-                    <span className={`text-xs ${duty.completed ? 'text-emerald-600' : 'text-zinc-400'}`}>
-                      {duty.completed ? '완료' : '대기'}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -85,7 +79,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* 학년별 현황 */}
         <Card>
           <div className="px-5 py-4 border-b border-zinc-100">
             <h2 className="text-sm font-semibold text-zinc-900">학년별 현황</h2>

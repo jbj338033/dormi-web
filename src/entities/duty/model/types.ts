@@ -16,11 +16,24 @@ export const DutyScheduleSchema = z.object({
   assignee: UserInDutySchema,
   date: z.string(),
   floor: z.number().nullable().optional(),
-  completed: z.boolean(),
   createdAt: z.string().optional(),
 });
 
 export type DutySchedule = z.infer<typeof DutyScheduleSchema>;
+
+export const SwapRequestStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
+export type SwapRequestStatus = z.infer<typeof SwapRequestStatusSchema>;
+
+export const DutySwapRequestSchema = z.object({
+  id: z.string(),
+  requester: UserInDutySchema,
+  sourceDuty: DutyScheduleSchema,
+  targetDuty: DutyScheduleSchema,
+  status: SwapRequestStatusSchema,
+  createdAt: z.string(),
+});
+
+export type DutySwapRequest = z.infer<typeof DutySwapRequestSchema>;
 
 export interface CreateDutyInput {
   type: DutyType;
@@ -44,6 +57,6 @@ export interface GenerateDutyInput {
   floor?: number;
 }
 
-export interface SwapDutyInput {
+export interface CreateSwapRequestInput {
   targetDutyId: string;
 }

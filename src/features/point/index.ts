@@ -1,4 +1,5 @@
 export {
+  getPoints,
   getPointsByStudent,
   getPointSummary,
   givePoint,

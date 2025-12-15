@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Upload, FileSpreadsheet, ChevronDown } from 'lucide-react';
-import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, Badge } from '@/shared/ui';
+import { Plus, Upload, FileSpreadsheet, Search } from 'lucide-react';
+import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, Input, Select } from '@/shared/ui';
 import { StudentTable } from '@/widgets/student-table';
 import { StudentForm } from '@/widgets/student-form';
 import { getStudents, createStudent, updateStudent, deleteStudent, importStudentsFromCsv } from '@/features/student';
@@ -13,9 +13,7 @@ import type { Student, CreateStudentInput } from '@/entities/student';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,69 +22,41 @@ export default function StudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>();
   const [studentToDelete, setStudentToDelete] = useState<Student | undefined>();
   const [importLoading, setImportLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [gradeFilter, setGradeFilter] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const loaderRef = useRef<HTMLDivElement>(null);
 
   const hasAnyRole = useAuthStore((state) => state.hasAnyRole);
   const canCreate = hasAnyRole(FEATURE_PERMISSIONS.STUDENT_CREATE);
   const canEdit = hasAnyRole(FEATURE_PERMISSIONS.STUDENT_EDIT);
   const canDelete = hasAnyRole(FEATURE_PERMISSIONS.STUDENT_DELETE);
 
-  const fetchStudents = useCallback(async (pageNum: number, append = false) => {
-    if (pageNum === 1) setLoading(true);
-    else setLoadingMore(true);
-
+  const fetchStudents = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await getStudents({ page: pageNum, limit: 20 });
-      if (append) {
-        setStudents((prev) => [...prev, ...res.data]);
-      } else {
-        setStudents(res.data);
-      }
-      setTotalCount(res.meta.total);
-      setHasMore(pageNum < res.meta.totalPages);
+      const data = await getStudents();
+      setStudents(data);
     } catch {
       toast.error('학생 목록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchStudents(1);
+    fetchStudents();
   }, [fetchStudents]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          setPage((prev) => prev + 1);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (loaderRef.current) {
-      observer.observe(loaderRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading]);
-
-  useEffect(() => {
-    if (page > 1) {
-      fetchStudents(page, true);
-    }
-  }, [page, fetchStudents]);
-
-  const refresh = () => {
-    setPage(1);
-    setHasMore(true);
-    fetchStudents(1);
-  };
+  const filteredStudents = useMemo(() => {
+    return students.filter((student) => {
+      const matchesSearch = !searchQuery ||
+        student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.studentNumber.includes(searchQuery) ||
+        student.roomNumber.includes(searchQuery);
+      const matchesGrade = !gradeFilter || student.grade === Number(gradeFilter);
+      return matchesSearch && matchesGrade;
+    });
+  }, [students, searchQuery, gradeFilter]);
 
   const handleCreate = () => {
     setSelectedStudent(undefined);
@@ -111,7 +81,7 @@ export default function StudentsPage() {
       toast.success('삭제되었습니다');
       setIsDeleteDialogOpen(false);
       setStudentToDelete(undefined);
-      refresh();
+      fetchStudents();
     } catch {
       toast.error('삭제에 실패했습니다');
     } finally {
@@ -130,7 +100,7 @@ export default function StudentsPage() {
         toast.success('등록되었습니다');
       }
       setIsModalOpen(false);
-      refresh();
+      fetchStudents();
     } catch {
       toast.error(selectedStudent ? '수정에 실패했습니다' : '등록에 실패했습니다');
     } finally {
@@ -147,7 +117,7 @@ export default function StudentsPage() {
       await importStudentsFromCsv(file);
       toast.success('학생이 등록되었습니다');
       setIsImportModalOpen(false);
-      refresh();
+      fetchStudents();
     } catch {
       toast.error('CSV 가져오기에 실패했습니다');
     } finally {
@@ -157,6 +127,13 @@ export default function StudentsPage() {
       }
     }
   };
+
+  const gradeOptions = [
+    { value: '', label: '전체 학년' },
+    { value: '1', label: '1학년' },
+    { value: '2', label: '2학년' },
+    { value: '3', label: '3학년' },
+  ];
 
   return (
     <div className="p-6">
@@ -179,31 +156,39 @@ export default function StudentsPage() {
       />
 
       <Card>
+        <div className="px-5 py-4 border-b border-zinc-100">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="이름, 학번, 호실로 검색"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              />
+            </div>
+            <Select
+              options={gradeOptions}
+              value={gradeFilter}
+              onChange={(e) => setGradeFilter(e.target.value)}
+              className="w-full sm:w-32"
+            />
+          </div>
+        </div>
         <CardContent>
           {loading ? (
             <TableSkeleton rows={8} cols={5} />
           ) : (
             <>
               <StudentTable
-                students={students}
+                students={filteredStudents}
                 onEdit={canEdit ? handleEdit : undefined}
                 onDelete={canDelete ? handleDeleteClick : undefined}
               />
-              {hasMore && (
-                <div ref={loaderRef} className="flex flex-col items-center gap-2 py-6 border-t border-zinc-100 mt-4">
-                  {loadingMore ? (
-                    <div className="h-5 w-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <ChevronDown className="h-5 w-5 text-zinc-400 animate-bounce" />
-                      <p className="text-xs text-zinc-400">스크롤하여 더 불러오기</p>
-                    </>
-                  )}
-                </div>
-              )}
-              {!hasMore && students.length > 0 && (
+              {filteredStudents.length > 0 && (
                 <div className="text-center py-4 border-t border-zinc-100 mt-4">
-                  <p className="text-xs text-zinc-400">모든 학생을 불러왔습니다</p>
+                  <p className="text-xs text-zinc-400">{filteredStudents.length}명의 학생</p>
                 </div>
               )}
             </>
@@ -211,12 +196,10 @@ export default function StudentsPage() {
         </CardContent>
       </Card>
 
-      {/* 학생 등록/수정 모달 */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedStudent ? '학생 수정' : '학생 등록'}>
         <StudentForm student={selectedStudent} onSubmit={handleSubmit} onCancel={() => setIsModalOpen(false)} loading={formLoading} />
       </Modal>
 
-      {/* CSV 가져오기 모달 */}
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="CSV 가져오기">
         <div className="space-y-4">
           <div className="bg-zinc-50 rounded-lg p-4">
@@ -260,7 +243,6 @@ export default function StudentsPage() {
         </div>
       </Modal>
 
-      {/* 삭제 확인 다이얼로그 */}
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
         onClose={() => {

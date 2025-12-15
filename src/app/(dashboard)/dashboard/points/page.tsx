@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Plus, TrendingUp, TrendingDown, Activity, ChevronDown, X, Award, User } from 'lucide-react';
-import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, EmptyState, Skeleton } from '@/shared/ui';
+import { AlertTriangle, Plus, TrendingUp, TrendingDown, Activity, X, Award, User, Search } from 'lucide-react';
+import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, EmptyState, Skeleton, Select } from '@/shared/ui';
 import { StudentTable } from '@/widgets/student-table';
 import { PointForm } from '@/widgets/point-form';
 import { PointHistory } from '@/widgets/point-history';
@@ -24,9 +24,6 @@ import { PENALTY_THRESHOLD } from '@/shared/config/constants';
 export default function PointsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [points, setPoints] = useState<Point[]>([]);
@@ -38,71 +35,51 @@ export default function PointsPage() {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [pointToCancel, setPointToCancel] = useState<Point | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
-  const loaderRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [gradeFilter, setGradeFilter] = useState<string>('');
 
   const hasAnyRole = useAuthStore((state) => state.hasAnyRole);
   const canGrant = hasAnyRole(FEATURE_PERMISSIONS.POINT_GRANT);
   const canCancel = hasAnyRole(FEATURE_PERMISSIONS.POINT_CANCEL);
 
-  const fetchStudents = useCallback(async (pageNum: number, append = false) => {
-    if (pageNum === 1) setLoading(true);
-    else setLoadingMore(true);
-
+  const fetchStudents = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await getStudents({ page: pageNum, limit: 20 });
-      const newStudents = append ? [...students, ...res.data] : res.data;
-      setStudents(newStudents);
-      setHasMore(pageNum < res.meta.totalPages);
+      const data = await getStudents();
+      setStudents(data);
 
-      // Fetch point summaries for new students
-      const newIds = res.data.map((s) => s.id);
-      const summaryPromises = newIds.map((id) =>
-        getPointSummary(id)
-          .then((s) => ({ id, summary: s }))
+      const summaryPromises = data.map((s) =>
+        getPointSummary(s.id)
+          .then((summary) => ({ id: s.id, summary }))
           .catch(() => null)
       );
       const results = await Promise.all(summaryPromises);
-      const newSummaries: Record<string, PointSummary> = {};
+      const summaries: Record<string, PointSummary> = {};
       results.forEach((r) => {
-        if (r) newSummaries[r.id] = r.summary;
+        if (r) summaries[r.id] = r.summary;
       });
-      setPointSummaries((prev) => ({ ...prev, ...newSummaries }));
+      setPointSummaries(summaries);
     } catch {
       toast.error('학생 목록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [students]);
-
-  useEffect(() => {
-    fetchStudents(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          setPage((prev) => prev + 1);
-        }
-      },
-      { threshold: 0.1 }
-    );
+    fetchStudents();
+  }, [fetchStudents]);
 
-    if (loaderRef.current) {
-      observer.observe(loaderRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading]);
-
-  useEffect(() => {
-    if (page > 1) {
-      fetchStudents(page, true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  const filteredStudents = useMemo(() => {
+    return students.filter((student) => {
+      const matchesSearch = !searchQuery ||
+        student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.studentNumber.includes(searchQuery) ||
+        student.roomNumber.includes(searchQuery);
+      const matchesGrade = !gradeFilter || student.grade === Number(gradeFilter);
+      return matchesSearch && matchesGrade;
+    });
+  }, [students, searchQuery, gradeFilter]);
 
   const handleSelectStudent = async (student: Student) => {
     setSelectedStudent(student);
@@ -136,7 +113,6 @@ export default function PointsPage() {
         toast.success('점수가 부여되었습니다');
       }
 
-      // Refresh data
       if (selectedStudent) {
         const [pointsData, summaryData] = await Promise.all([
           getPointsByStudent(selectedStudent.id),
@@ -147,7 +123,6 @@ export default function PointsPage() {
         setPointSummaries((prev) => ({ ...prev, [selectedStudent.id]: summaryData }));
       }
 
-      // Update summaries for bulk targets
       if (targetIds.length > 1) {
         const summaryPromises = targetIds.map((id) =>
           getPointSummary(id)
@@ -209,6 +184,13 @@ export default function PointsPage() {
       ? [selectedStudent.name]
       : [];
 
+  const gradeOptions = [
+    { value: '', label: '전체 학년' },
+    { value: '1', label: '1학년' },
+    { value: '2', label: '2학년' },
+    { value: '3', label: '3학년' },
+  ];
+
   return (
     <div className="p-6">
       <PageHeader
@@ -223,7 +205,6 @@ export default function PointsPage() {
         }
       />
 
-      {/* 선택된 학생 표시 (다중 선택 시) */}
       {selectedIds.length > 0 && (
         <div className="mb-4 p-3 bg-sky-50 border border-sky-100 rounded-lg">
           <div className="flex items-center justify-between">
@@ -253,11 +234,26 @@ export default function PointsPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* 학생 목록 */}
         <Card className="lg:col-span-3">
           <div className="px-5 py-4 border-b border-zinc-100">
-            <h2 className="text-sm font-semibold text-zinc-900">학생 목록</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">학생을 클릭하여 상세 정보 확인</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="이름, 학번, 호실로 검색"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                />
+              </div>
+              <Select
+                options={gradeOptions}
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+                className="w-full sm:w-32"
+              />
+            </div>
           </div>
           <CardContent>
             {loading ? (
@@ -265,7 +261,7 @@ export default function PointsPage() {
             ) : (
               <>
                 <StudentTable
-                  students={students}
+                  students={filteredStudents}
                   onSelect={handleSelectStudent}
                   selectable={canGrant}
                   selectedIds={selectedIds}
@@ -274,16 +270,9 @@ export default function PointsPage() {
                   showPoints
                   selectedStudentId={selectedStudent?.id}
                 />
-                {hasMore && (
-                  <div ref={loaderRef} className="flex flex-col items-center gap-2 py-6 border-t border-zinc-100 mt-4">
-                    {loadingMore ? (
-                      <div className="h-5 w-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <ChevronDown className="h-5 w-5 text-zinc-400 animate-bounce" />
-                        <p className="text-xs text-zinc-400">스크롤하여 더 불러오기</p>
-                      </>
-                    )}
+                {filteredStudents.length > 0 && (
+                  <div className="text-center py-4 border-t border-zinc-100 mt-4">
+                    <p className="text-xs text-zinc-400">{filteredStudents.length}명의 학생</p>
                   </div>
                 )}
               </>
@@ -291,7 +280,6 @@ export default function PointsPage() {
           </CardContent>
         </Card>
 
-        {/* 학생 상세 정보 */}
         <Card className="lg:col-span-2 lg:sticky lg:top-6 lg:self-start">
           {selectedStudent ? (
             <>
@@ -391,7 +379,6 @@ export default function PointsPage() {
         </Card>
       </div>
 
-      {/* 점수 부여 모달 */}
       <Modal isOpen={isPointFormOpen} onClose={() => setIsPointFormOpen(false)} title="점수 부여">
         <PointForm
           studentNames={targetNames}
@@ -401,7 +388,6 @@ export default function PointsPage() {
         />
       </Modal>
 
-      {/* 점수 취소 확인 다이얼로그 */}
       <ConfirmDialog
         isOpen={isCancelDialogOpen}
         onClose={() => {

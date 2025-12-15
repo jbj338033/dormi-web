@@ -5,6 +5,9 @@ export {
   updateDuty,
   deleteDuty,
   generateDuties,
-  completeDuty,
-  swapDuty,
+  createSwapRequest,
+  getMySwapRequests,
+  getPendingSwapRequests,
+  approveSwapRequest,
+  rejectSwapRequest,
 } from './api/duty-api';

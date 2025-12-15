@@ -21,6 +21,10 @@ interface DutyCalendarProps {
   schedules: DutySchedule[];
   currentUserId?: string;
   onSelectDate?: (date: Date, schedules: DutySchedule[]) => void;
+  swapMode?: boolean;
+  swapSource?: DutySchedule | null;
+  swapTarget?: DutySchedule | null;
+  onScheduleClick?: (schedule: DutySchedule) => void;
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -46,6 +50,10 @@ export function DutyCalendar({
   schedules,
   currentUserId,
   onSelectDate,
+  swapMode = false,
+  swapSource,
+  swapTarget,
+  onScheduleClick,
 }: DutyCalendarProps) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth), { locale: ko });
@@ -87,12 +95,12 @@ export function DutyCalendar({
           return (
             <div
               key={day.toISOString()}
-              onClick={() => onSelectDate?.(day, daySchedules)}
+              onClick={() => !swapMode && onSelectDate?.(day, daySchedules)}
               className={cn(
-                'min-h-24 p-1.5 border-b border-r border-zinc-100 cursor-pointer transition-colors',
+                'min-h-24 p-1.5 border-b border-r border-zinc-100 transition-colors',
                 !isCurrentMonth && 'bg-zinc-50/50',
-                isMyDay && isCurrentMonth && 'bg-amber-50/50',
-                onSelectDate && 'hover:bg-zinc-50'
+                isMyDay && isCurrentMonth && !swapMode && 'bg-amber-50/50',
+                !swapMode && onSelectDate && 'cursor-pointer hover:bg-zinc-50'
               )}
             >
               <div className="flex items-center justify-between mb-1">
@@ -114,14 +122,27 @@ export function DutyCalendar({
                 <div className="space-y-0.5">
                   {daySchedules.map((schedule) => {
                     const isMe = schedule.assignee.id === currentUserId;
+                    const isSource = swapSource?.id === schedule.id;
+                    const isTarget = swapTarget?.id === schedule.id;
+                    const isFuture = new Date(schedule.date) >= new Date();
+                    const canSelect = swapMode && isFuture && (isMe || (swapSource && !isMe));
+
                     return (
                       <div
                         key={schedule.id}
+                        onClick={(e) => {
+                          if (swapMode && onScheduleClick) {
+                            e.stopPropagation();
+                            onScheduleClick(schedule);
+                          }
+                        }}
                         className={cn(
-                          'text-[10px] px-1 py-0.5 rounded truncate',
+                          'text-[10px] px-1 py-0.5 rounded truncate transition-all',
                           schedule.type === 'DORM' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700',
-                          isMe && 'ring-1 ring-amber-400 font-medium',
-                          schedule.completed && 'opacity-50'
+                          isMe && !swapMode && 'ring-1 ring-amber-400 font-medium',
+                          swapMode && canSelect && 'cursor-pointer hover:ring-2 hover:ring-sky-400',
+                          isSource && 'ring-2 ring-sky-500 bg-sky-200',
+                          isTarget && 'ring-2 ring-emerald-500 bg-emerald-100 text-emerald-700'
                         )}
                       >
                         {getTypeLabel(schedule)} {schedule.assignee.name}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { ChevronLeft, ChevronRight, FileText, Filter, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { Card, CardContent, Button, Select, PageHeader, TableSkeleton, EmptyState, Badge } from '@/shared/ui';
 import { LogViewer } from '@/widgets/log-viewer';
 import { getAuditLogs } from '@/features/log';
@@ -65,16 +65,12 @@ export default function LogsPage() {
     <div className="p-6">
       <PageHeader
         title="활동 로그"
-        description="시스템의 모든 활동 기록을 확인합니다"
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-zinc-400" />
-              <Select options={actionOptions} value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className="w-40" />
-            </div>
+            <Select options={actionOptions} value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className="w-40" />
           </div>
         }
       />
@@ -92,10 +88,7 @@ export default function LogsPage() {
 
       <Card>
         <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-zinc-400" />
-            <h2 className="text-sm font-semibold text-zinc-900">로그 목록</h2>
-          </div>
+          <h2 className="text-sm font-semibold text-zinc-900">로그 목록</h2>
           {!loading && (
             <span className="text-xs text-zinc-500">
               총 {totalCount}건 {actionFilter && `(필터 적용)`}

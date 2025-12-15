@@ -33,8 +33,10 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     const [isFocused, setIsFocused] = useState(false);
 
     useEffect(() => {
-      const handleKeyChange = (e: KeyboardEvent) => {
-        setCapsLockOn(e.getModifierState('CapsLock'));
+      const handleKeyChange = (e: globalThis.KeyboardEvent) => {
+        if (e.getModifierState) {
+          setCapsLockOn(e.getModifierState('CapsLock'));
+        }
       };
 
       window.addEventListener('keydown', handleKeyChange);

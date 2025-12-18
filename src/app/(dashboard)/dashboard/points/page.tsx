@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Plus, TrendingUp, TrendingDown, Activity, X, Award, User, Search } from 'lucide-react';
+import { AlertTriangle, Plus, TrendingUp, TrendingDown, Activity, X, Award, User, Search, Download } from 'lucide-react';
 import { Card, CardContent, Modal, Button, PageHeader, TableSkeleton, ConfirmDialog, EmptyState, Skeleton, Select } from '@/shared/ui';
 import { StudentTable } from '@/widgets/student-table';
 import { PointForm } from '@/widgets/point-form';
@@ -14,6 +14,8 @@ import {
   givePoint,
   cancelPoint,
   bulkGivePoints,
+  exportPointsSummary,
+  exportStudentPointsDetail,
 } from '@/features/point';
 import { useAuthStore } from '@/shared/store/auth';
 import { FEATURE_PERMISSIONS } from '@/shared/config/permissions';
@@ -196,12 +198,23 @@ export default function PointsPage() {
       <PageHeader
         title="벌점/상점"
         actions={
-          canGrant && (selectedIds.length > 0 || selectedStudent) && (
-            <Button onClick={() => setIsPointFormOpen(true)} size="sm">
-              <Plus className="h-4 w-4 mr-1.5" />
-              {selectedIds.length > 0 ? `${selectedIds.length}명에게 점수 부여` : '점수 부여'}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => exportPointsSummary(students, pointSummaries)}
+              disabled={loading || students.length === 0}
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              엑셀 내보내기
             </Button>
-          )
+            {canGrant && (selectedIds.length > 0 || selectedStudent) && (
+              <Button onClick={() => setIsPointFormOpen(true)} size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                {selectedIds.length > 0 ? `${selectedIds.length}명에게 점수 부여` : '점수 부여'}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -356,7 +369,17 @@ export default function PointsPage() {
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-semibold text-zinc-900">점수 이력</h4>
-                        <span className="text-xs text-zinc-400">{points.length}건</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-400">{points.length}건</span>
+                          {points.length > 0 && (
+                            <button
+                              onClick={() => exportStudentPointsDetail(selectedStudent, points)}
+                              className="text-xs text-sky-600 hover:text-sky-800 transition-colors"
+                            >
+                              내보내기
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="max-h-80 overflow-y-auto">
                         <PointHistory points={points} onCancel={canCancel ? handleCancelClick : undefined} />

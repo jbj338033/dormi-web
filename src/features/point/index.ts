@@ -7,3 +7,8 @@ export {
   cancelPoint,
   resetAllPoints,
 } from './api/point-api';
+
+export {
+  exportPointsSummary,
+  exportStudentPointsDetail,
+} from './lib/export-points';
